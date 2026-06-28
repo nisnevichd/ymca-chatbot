@@ -1,7 +1,12 @@
 import os
+from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
+
+# Load environment variables from the local .env file before any Anthropic setup.
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=True)
 
 from chatbot import (
     DEFAULT_COLLECTION_NAME,
@@ -10,8 +15,6 @@ from chatbot import (
     answer_question,
     ingest_documents,
 )
-
-load_dotenv()
 
 st.set_page_config(page_title="YMCA Staff Assistant", page_icon="🏋️", layout="wide")
 

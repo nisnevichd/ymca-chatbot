@@ -1,0 +1,18 @@
+{
+  "branches": [
+    {
+      "name": "North Valley YMCA",
+      "address": "11336 Corbin Avenue Porter Ranch, CA 91326",
+      "phone": "818 368 3231",
+      "hours": {
+        "monday": "6:00 AM - 9:00 PM",
+        "tuesday": "6:00 AM - 9:00 PM",
+        "wednesday": "6:00 AM - 9:00 PM",
+        "thursday": "6:00 AM - 9:00 PM",
+        "friday": "6:00 AM - 9:00 PM",
+        "saturday": "7:00 AM - 5:00 PM",
+        "sunday": "8:00 AM - 2:00 PM"
+      }
+    }
+  ]
+}

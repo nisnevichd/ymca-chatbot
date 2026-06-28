@@ -11,6 +11,6 @@ if __name__ == "__main__":
         collection_name=DEFAULT_COLLECTION_NAME,
         include_web=True,
     )
-    print(f"Knowledge base rebuilt successfully with {metadata['document_count']} document(s).")
+    print(f"Knowledge base rebuilt successfully with {metadata['document_count']} document(s) and {metadata['chunk_count']} chunk(s).")
     print(f"Collection: {metadata['collection_name']}")
     print(f"Stored in: {metadata['persist_dir']}")
