@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from chatbot import (
     _build_context_for_question,
+    _build_context_from_nodes,
     _classify_retrieval_scope,
     _crawl_ymca_site,
     _extract_main_text_from_html,
@@ -135,6 +136,23 @@ def test_build_context_for_question_prefers_web_sources_for_public_topics(tmp_pa
 
     assert "swim lessons" in context.lower()
     assert "employee handbook" not in context.lower()
+
+
+def test_build_context_from_nodes_limits_chunks_and_chars():
+    class FakeNode:
+        def __init__(self, text: str):
+            self._text = text
+
+        def get_content(self) -> str:
+            return self._text
+
+    nodes = [FakeNode("x" * 600) for _ in range(6)]
+
+    context = _build_context_from_nodes(nodes)
+
+    assert len([part for part in context.split("Chunk ") if part]) == 5
+    for chunk in [part for part in context.split("Chunk ") if part]:
+        assert len(chunk) <= 550
 
 
 def test_crawl_ymca_site_skips_duplicates_and_external_links(tmp_path, monkeypatch):
