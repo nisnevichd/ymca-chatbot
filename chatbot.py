@@ -60,7 +60,10 @@ def _configure_embedding_model() -> None:
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
     except Exception:
-        Settings.embed_model = MockEmbedding(embed_dim=384)
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+        Settings.embed_model = HuggingFaceEmbedding(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
 
 
 _configure_embedding_model()
@@ -278,7 +281,15 @@ def _classify_retrieval_scope(question: str) -> str:
     """Classify whether a question should use handbook content, public web content, or branch-hours data."""
     question_lower = question.lower()
 
-    if any(keyword in question_lower for keyword in ["hour", "hours", "branch hours", "open", "operating"]):
+    if any(keyword in question_lower for keyword in [
+        "hour", "hours", "branch hours", "open", "operating",
+        "close", "closing", "closed",
+        "pool hours", "pool open", "pool close",
+        "basketball hours", "basketball court hours", "court hours",
+        "pickleball hours", "pickleball open",
+        "when is the pool", "when is basketball", "when is pickleball",
+        "what time does", "what time is"
+    ]):
         return "hours"
 
     public_topics = [
@@ -298,20 +309,25 @@ def _classify_retrieval_scope(question: str) -> str:
         "values",
     ]
     handbook_topics = [
-        "whistleblower",
-        "payroll",
-        "leave",
-        "arbitration",
-        "discipline",
-        "employee",
-        "staff",
-        "policy",
-        "hr",
-        "benefit",
-        "benefits",
-        "team member",
-        "handbook",
-    ]
+    "whistleblower",
+    "payroll",
+    "leave",
+    "pto",
+    "vacation",
+    "time off",
+    "sick day",
+    "sick time",
+    "arbitration",
+    "discipline",
+    "employee",
+    "staff",
+    "policy",
+    "hr",
+    "benefit",
+    "benefits",
+    "team member",
+    "handbook",
+]
 
     if any(keyword in question_lower for keyword in public_topics):
         return "web"
@@ -343,7 +359,7 @@ def _read_scope_specific_sources(docs_dir: Path, question: str) -> str:
             if path.is_file() and path.suffix.lower() == ".txt" and "ymcala_org" in path.name.lower()
         ]
     elif scope == "hours":
-        hours_path = docs_dir / "hours.json"
+        hours_path = ROOT_DIR / "hours.json"   # instead of docs_dir / "hours.json"
         if hours_path.exists():
             return hours_path.read_text(encoding="utf-8", errors="ignore")
         candidates = []
@@ -430,19 +446,23 @@ def answer_question(
     # Step 1: Load the vector index from ChromaDB
     index = load_index(persist_dir=persist_dir, collection_name=collection_name)
 
-    # Step 2: Classify the question and retrieve relevant chunks
+    # Step 2: Classify the question
     scope = _classify_retrieval_scope(question)
-    nodes = _collect_relevant_nodes(index, question, scope)
 
-    # Step 3: Build compact context (hard capped to prevent token overflow)
-    context = _build_context_from_nodes(nodes)
-
-    if not context:
-        scope_context = _read_scope_specific_sources(DEFAULT_DOCS_DIR, question)
-        if scope_context:
-            context = scope_context
-        else:
+    # Hours questions skip vector search entirely — read hours.json directly
+    if scope == "hours":
+        context = _read_scope_specific_sources(DEFAULT_DOCS_DIR, question)
+        if not context:
             return "I could not find relevant information in the provided sources."
+    else:
+        nodes = _collect_relevant_nodes(index, question, scope)
+        context = _build_context_from_nodes(nodes)
+        if not context:
+            scope_context = _read_scope_specific_sources(DEFAULT_DOCS_DIR, question)
+            if scope_context:
+                context = scope_context
+            else:
+                return "I could not find relevant information in the provided sources."
 
     # Step 4: Send question + context to Claude
     _load_environment()

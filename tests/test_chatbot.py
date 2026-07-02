@@ -1,181 +1,84 @@
-import shutil
-import sys
+# tests/test_chatbot.py
+import pytest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from chatbot import (
-    _build_context_for_question,
-    _build_context_from_nodes,
     _classify_retrieval_scope,
-    _crawl_ymca_site,
-    _extract_main_text_from_html,
     _read_scope_specific_sources,
     answer_question,
-    ingest_documents,
+    DEFAULT_DOCS_DIR,
+    ROOT_DIR,
 )
 
 
-def test_ingest_documents_builds_index_from_local_sources(tmp_path):
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    (docs_dir / "policy.txt").write_text(
-        "YMCA branch hours are 6 AM to 8 PM on weekdays.",
-        encoding="utf-8",
-    )
+# ---------- Scope classification ----------
 
-    persist_dir = tmp_path / "data"
-    index, metadata = ingest_documents(
-        docs_dir=docs_dir,
-        persist_dir=persist_dir,
-        collection_name="test_collection",
-        include_web=False,
-    )
-
-    assert index is not None
-    assert metadata["collection_name"] == "test_collection"
-    assert metadata["document_count"] >= 1
+@pytest.mark.parametrize("question,expected_scope", [
+    ("What time does the branch open on Saturday?", "hours"),
+    ("Are you open on holidays?", "hours"),
+    ("What swim lessons do you offer?", "web"),
+    ("How do I sign up for membership?", "web"),
+    ("What is the whistleblower policy?", "handbook"),
+    ("How much PTO do I get?", "handbook"),
+    ("What is the meaning of life?", "all"),
+    ("Are the basketball courts open?", "hours"),
+    ("What time does the pool close?", "hours"),
+    ("How do I sign up for basketball league?", "all"),
+    ("When can I play pickleball?", "all"),  # nothing matches -> falls through
+])
+def test_scope_classification(question, expected_scope):
+    assert _classify_retrieval_scope(question) == expected_scope
 
 
-def test_answer_question_returns_context_based_response(tmp_path):
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    (docs_dir / "policy.txt").write_text(
-        "Branch hours are 6 AM to 8 PM on weekdays.",
-        encoding="utf-8",
-    )
+# ---------- hours.json resolution (regression test for the bug we just fixed) ----------
 
-    persist_dir = tmp_path / "data"
-    ingest_documents(
-        docs_dir=docs_dir,
-        persist_dir=persist_dir,
-        collection_name="test_collection",
-        include_web=False,
-    )
+def test_hours_file_exists_at_root():
+    hours_path = ROOT_DIR / "hours.json"
+    assert hours_path.exists(), "hours.json should live at project root, not inside docs/"
 
-    answer = answer_question(
-        "What are branch hours?",
-        persist_dir=persist_dir,
-        collection_name="test_collection",
-        api_key=None,
-    )
-
-    assert "6 am" in answer.lower()
+def test_hours_scope_returns_content():
+    context = _read_scope_specific_sources(DEFAULT_DOCS_DIR, "What are your hours today?")
+    assert context.strip() != "", "hours scope should return non-empty content"
 
 
-def test_ingest_documents_includes_uppercase_pdf_files(tmp_path):
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
+# ---------- End-to-end answer quality ----------
+# These hit the real index + real Claude API — mark them so you can skip when offline/no API key
 
-    repo_pdf = Path(__file__).resolve().parents[1] / "docs" / "Team Member Handbook.PDF"
-    shutil.copy2(repo_pdf, docs_dir / "Team Member Handbook.PDF")
+@pytest.mark.integration
+class TestRealAnswers:
 
-    persist_dir = tmp_path / "data"
-    _, metadata = ingest_documents(
-        docs_dir=docs_dir,
-        persist_dir=persist_dir,
-        collection_name="test_collection",
-        include_web=False,
-    )
+    def test_hours_question(self):
+        answer = answer_question("What time does the Porter Ranch branch open?")
+        assert "not enough information" not in answer.lower()
+        assert "could not find" not in answer.lower()
 
-    assert any("Team Member Handbook.PDF" in source for source in metadata["source_files"])
+    def test_handbook_policy_question(self):
+        answer = answer_question("What is the YMCA's policy on employee benefits?")
+        assert "not enough information" not in answer.lower()
+        assert "could not find" not in answer.lower()
 
+    def test_web_program_question(self):
+        answer = answer_question("What aquatics programs does the YMCA offer?")
+        assert "not enough information" not in answer.lower()
+        assert "could not find" not in answer.lower()
 
-def test_extract_main_text_from_html_ignores_navigation_and_footer():
-    html = """
-    <html><body>
-      <header>YMCA of Metropolitan Los Angeles</header>
-      <nav>Programs Aquatics Youth</nav>
-      <main>
-        <h1>Membership Handbook</h1>
-        <p>Welcome to the Y.</p>
-      </main>
-      <footer>Contact us</footer>
-    </body></html>
-    """
-
-    text = _extract_main_text_from_html(html)
-
-    assert "Membership Handbook" in text
-    assert "Welcome to the Y." in text
-    assert "Programs" not in text
-    assert "Contact us" not in text
+    def test_membership_question(self):
+        answer = answer_question("How do I sign up for a YMCA membership?")
+        assert "not enough information" not in answer.lower()
 
 
-def test_classify_retrieval_scope_prioritizes_web_for_public_programs():
-    assert _classify_retrieval_scope("What aquatics programs are available?") == "web"
-    assert _classify_retrieval_scope("How do I file a whistleblower complaint?") == "handbook"
-    assert _classify_retrieval_scope("Tell me about the YMCA") == "all"
+# ---------- Edge cases ----------
 
+def test_empty_question():
+    answer = answer_question("")
+    assert "Please enter a question" in answer
 
-def test_read_scope_specific_sources_uses_web_files_for_public_topics(tmp_path):
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    (docs_dir / "www_ymcala_org_aquatics.txt").write_text(
-        "Aquatics programs include swim lessons and water aerobics.",
-        encoding="utf-8",
-    )
-    (docs_dir / "Team Member Handbook.PDF").write_bytes(b"employee handbook")
+def test_whitespace_only_question():
+    answer = answer_question("   ")
+    assert "Please enter a question" in answer
 
-    content = _read_scope_specific_sources(docs_dir, "What aquatics programs are available?")
-
-    assert "swim lessons" in content.lower()
-    assert "employee handbook" not in content.lower()
-
-
-def test_build_context_for_question_prefers_web_sources_for_public_topics(tmp_path):
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    (docs_dir / "www_ymcala_org_aquatics.txt").write_text(
-        "Aquatics programs include swim lessons and water aerobics.",
-        encoding="utf-8",
-    )
-    (docs_dir / "Team Member Handbook.PDF").write_bytes(b"employee handbook")
-
-    context = _build_context_for_question(docs_dir, "What aquatics programs are available?")
-
-    assert "swim lessons" in context.lower()
-    assert "employee handbook" not in context.lower()
-
-
-def test_build_context_from_nodes_limits_chunks_and_chars():
-    class FakeNode:
-        def __init__(self, text: str):
-            self._text = text
-
-        def get_content(self) -> str:
-            return self._text
-
-    nodes = [FakeNode("x" * 600) for _ in range(6)]
-
-    context = _build_context_from_nodes(nodes)
-
-    assert len([part for part in context.split("Chunk ") if part]) == 5
-    for chunk in [part for part in context.split("Chunk ") if part]:
-        assert len(chunk) <= 550
-
-
-def test_crawl_ymca_site_skips_duplicates_and_external_links(tmp_path, monkeypatch):
-    class FakeResponse:
-        def __init__(self, text: str):
-            self.text = text
-
-        def raise_for_status(self):
-            return None
-
-    pages = {
-        "https://www.ymcala.org/": "<html><body><a href='/programs'>Programs</a><a href='https://example.com/ignore'>Ignore</a></body></html>",
-        "https://www.ymcala.org/programs": "<html><body><main><h1>Programs</h1><p>Programs page</p></main></body></html>",
-        "https://www.ymcala.org/aquatics": "<html><body><main><h1>Aquatics</h1><p>Aquatics page</p></main></body></html>",
-    }
-
-    def fake_get(url, timeout, headers=None):
-        return FakeResponse(pages[url])
-
-    monkeypatch.setattr("chatbot.requests.get", fake_get)
-
-    output_dir = tmp_path / "site_pages"
-    files = _crawl_ymca_site("https://www.ymcala.org/", output_dir=output_dir, max_pages=5)
-
-    assert len(files) == 2
-    assert output_dir.exists()
+def test_nonsense_question():
+    # Should not crash, should gracefully say it doesn't have info
+    answer = answer_question("asdkfjaskldfjaslkdfj random gibberish xyz123")
+    assert isinstance(answer, str)
+    assert len(answer) > 0

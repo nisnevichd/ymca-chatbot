@@ -12,6 +12,60 @@
         "friday": "6:00 AM - 9:00 PM",
         "saturday": "7:00 AM - 5:00 PM",
         "sunday": "8:00 AM - 2:00 PM"
+      },
+      "facilities": {
+        "pool": {
+          "monday": "6:00 AM - 8:30 PM",
+          "tuesday": "6:00 AM - 8:30 PM",
+          "wednesday": "6:00 AM - 8:30 PM",
+          "thursday": "6:00 AM - 8:30 PM",
+          "friday": "6:00 AM - 8:30 PM",
+          "saturday": "7:00 AM - 4:30 PM",
+          "sunday": "8:00 AM - 1:30 PM"
+        },
+        "basketball_courts": {
+          "monday": [
+            {"open": "6:00 AM", "close": "11:00 AM"},
+            {"open": "1:00 PM", "close": "9:00 PM"}
+          ],
+          "tuesday": [
+            {"open": "6:00 AM", "close": "11:00 AM"},
+            {"open": "1:00 PM", "close": "9:00 PM"}
+          ],
+          "wednesday": [
+            {"open": "6:00 AM", "close": "11:00 AM"},
+            {"open": "1:00 PM", "close": "9:00 PM"}
+          ],
+          "thursday": [
+            {"open": "6:00 AM", "close": "11:00 AM"},
+            {"open": "1:00 PM", "close": "9:00 PM"}
+          ],
+          "friday": [
+            {"open": "6:00 AM", "close": "11:00 AM"},
+            {"open": "1:00 PM", "close": "9:00 PM"}
+          ],
+          "saturday": [
+            {"open": "7:00 AM", "close": "5:00 PM"}
+          ],
+          "sunday": [
+            {"open": "8:00 AM", "close": "2:00 PM"}
+          ]
+        },
+        "pickleball_court": {
+          "monday": [],
+          "tuesday": [
+            {"open": "6:00 PM", "close": "8:00 PM"}
+          ],
+          "wednesday": [],
+          "thursday": [
+            {"open": "6:00 PM", "close": "8:00 PM"}
+          ],
+          "friday": [],
+          "saturday": [
+            {"open": "9:00 AM", "close": "12:00 PM"}
+          ],
+          "sunday": []
+        }
       }
     }
   ]
