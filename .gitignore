@@ -8,3 +8,4 @@ __pycache__/
 data/
 chroma_db/
 docs/Team Member Handbook.PDF
+.DS_Store
