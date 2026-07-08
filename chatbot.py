@@ -211,15 +211,45 @@ def _load_documents(docs_dir: Path, include_web: bool, web_url: str) -> list:
             print(f"Warning: could not scrape the YMCA website: {exc}")
     if not docs_dir.exists():
         docs_dir.mkdir(parents=True, exist_ok=True)
+
     allowed_extensions = {".pdf", ".txt", ".md", ".html"}
-    input_files = [
+    all_files = [
         path for path in sorted(docs_dir.rglob("*"))
         if path.is_file() and path.suffix.lower() in allowed_extensions
     ]
-    if not input_files:
+    if not all_files:
         raise ValueError(f"No supported source documents were found in {docs_dir}")
-    reader = SimpleDirectoryReader(input_files=[str(p) for p in input_files])
-    documents = reader.load_data()
+
+    pdf_files = [p for p in all_files if p.suffix.lower() == ".pdf"]
+    non_pdf_files = [p for p in all_files if p.suffix.lower() != ".pdf"]
+
+    documents = []
+
+    if pdf_files:
+        from pypdf import PdfReader
+        from llama_index.core import Document
+        for pdf_path in pdf_files:
+            try:
+                reader = PdfReader(str(pdf_path))
+                pages_text = []
+                for page in reader.pages:
+                    text = page.extract_text() or ""
+                    if text.strip():
+                        pages_text.append(text)
+                full_text = "\n\n".join(pages_text)
+                if full_text.strip():
+                    documents.append(
+                        Document(text=full_text, metadata={"file_name": pdf_path.name})
+                    )
+                else:
+                    print(f"Warning: no extractable text found in {pdf_path.name}")
+            except Exception as exc:
+                print(f"Warning: could not extract text from {pdf_path.name}: {exc}")
+
+    if non_pdf_files:
+        reader = SimpleDirectoryReader(input_files=[str(p) for p in non_pdf_files])
+        documents.extend(reader.load_data())
+
     if not documents:
         raise ValueError(f"No documents were found in {docs_dir}")
     return documents
@@ -351,7 +381,7 @@ def _read_scope_specific_sources(docs_dir: Path, question: str) -> str:
 
     scope = _classify_retrieval_scope(question)
     if scope == "handbook":
-        candidates = [path for path in docs_dir.iterdir() if path.is_file() and path.suffix.lower() == ".pdf"]
+        candidates = []
     elif scope == "web":
         candidates = [
             path
@@ -376,7 +406,10 @@ def _read_scope_specific_sources(docs_dir: Path, question: str) -> str:
         if cleaned:
             parts.append(f"Source: {path.name}\n{cleaned}")
 
-    return "\n\n".join(parts)
+    context = "\n\n".join(parts)
+    if len(context) > MAX_CONTEXT_CHARS:
+        context = context[:MAX_CONTEXT_CHARS].rstrip() + "..."
+    return context
 
 
 def _build_context_for_question(docs_dir: Path, question: str) -> str:
