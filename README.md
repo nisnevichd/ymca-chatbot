@@ -2,12 +2,6 @@
 
 A RAG-powered chatbot for YMCA staff that answers handbook and policy questions using Anthropic Claude, LlamaIndex, ChromaDB, and Streamlit.
 
-## Why I built this
-
-I've worked at the YMCA of Metropolitan Los Angeles (Aquatics/Lifeguard, North Valley Family branch) for about nine years. New and returning staff constantly need quick answers to handbook questions — dress code, PTO, phone policy — and the usual path is digging through an 80+ page PDF or tracking down a supervisor. This chatbot lets staff ask in plain language and get a grounded answer pulled directly from the actual handbook and public program pages, in seconds.
-
-It's currently being tested by Jad, the Aquatics Coordinator at my branch, as the first real user outside of development.
-
 ## Demo
 
 ![Demo of YMCA Staff Chatbot](demo.gif)
