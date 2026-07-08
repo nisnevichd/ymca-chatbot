@@ -14,7 +14,7 @@ It's currently being tested by Jad, the Aquatics Coordinator at my branch, as th
 
 ## Features
 - Ingests the local employee handbook PDF and public YMCA program/membership pages
-- Extracts PDF text directly with pypdf for reliable, accurate content
+- Extracts PDF text directly with `pypdf` for reliable, accurate content (rather than relying on generic file-type auto-detection)
 - Stores and retrieves document chunks in ChromaDB using sentence-transformer embeddings
 - Scope-aware retrieval that routes questions to the right source (handbook policy, public programs, or branch hours)
 - Clean Streamlit chat interface for staff questions
@@ -36,7 +36,7 @@ It's currently being tested by Jad, the Aquatics Coordinator at my branch, as th
 ```bash
    export ANTHROPIC_API_KEY="your-key-here"
 ```
-4. Place handbook files in the docs/ directory. (Not included in this repo — handbook contents are internal to the organization.)
+4. Place handbook files in the `docs/` directory. (Not included in this repo — handbook contents are internal to the organization.)
 5. Run the ingestion script:
 ```bash
    python ingest.py
@@ -48,7 +48,7 @@ It's currently being tested by Jad, the Aquatics Coordinator at my branch, as th
 
 ## Updating policies and hours
 
-When branch hours or policies change, update the source documents in the docs/ folder or the website source, then rerun the ingestion step so the new information replaces the old content in the knowledge base.
+When branch hours or policies change, update the source documents in the `docs/` folder or the website source, then rerun the ingestion step so the new information replaces the old content in the knowledge base.
 
 ## Testing
 
